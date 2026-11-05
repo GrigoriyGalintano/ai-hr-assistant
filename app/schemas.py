@@ -24,6 +24,20 @@ class APIModel(BaseModel):
         alias_generator=to_camel, populate_by_name=True, from_attributes=True, extra="forbid"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_bytes(cls, data):
+        pending = [data]
+        while pending:
+            value = pending.pop()
+            if isinstance(value, str) and "\x00" in value:
+                raise ValueError("Строки не должны содержать нулевой байт.")
+            if isinstance(value, dict):
+                pending.extend(value.values())
+            elif isinstance(value, list):
+                pending.extend(value)
+        return data
+
 
 class VacancyFields(APIModel):
     title: Title

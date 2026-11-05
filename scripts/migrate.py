@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import psycopg
+from psycopg.pq import TransactionStatus
 
 from app.config import Settings
 
@@ -31,7 +32,8 @@ def migrate(database_url: str) -> None:
                     print(f"Applied {path.name}")
         finally:
             # A failed multi-statement migration can leave a transaction aborted.
-            connection.execute("ROLLBACK")
+            if connection.info.transaction_status != TransactionStatus.IDLE:
+                connection.execute("ROLLBACK")
             connection.execute("SELECT pg_advisory_unlock(20868529)")
 
 

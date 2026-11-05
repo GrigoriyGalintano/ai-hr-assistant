@@ -12,12 +12,18 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://hr:hr@127.0.0.1:55433/hr_assistant"
     api_token: SecretStr | None = None
     api_user_id: UUID | None = None
+    allow_registration: bool = False
+    session_hours: int = Field(default=24, ge=1, le=168)
+    integration_encryption_key: SecretStr | None = None
+    external_api_timeout: float = Field(default=15, gt=0, le=60)
+    external_user_agent: str = "AIHRAssistant/0.2"
+    ai_workflow_timeout: float = Field(default=30, gt=0, le=30)
 
     gigachat_auth_key: SecretStr | None = None
     gigachat_scope: Literal["GIGACHAT_API_PERS", "GIGACHAT_API_B2B", "GIGACHAT_API_CORP"] = (
         "GIGACHAT_API_PERS"
     )
-    gigachat_model: str = "GigaChat-2"
+    gigachat_model: str = Field(default="GigaChat-2", min_length=1, max_length=100)
     gigachat_base_url: HttpUrl = HttpUrl("https://api.giga.chat/v1")
     gigachat_auth_url: HttpUrl = HttpUrl("https://ngw.devices.sberbank.ru:9443/api/v2/oauth")
     gigachat_timeout: float = Field(default=30, gt=0, le=120)

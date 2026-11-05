@@ -5,14 +5,23 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException
 
 from app.ai import router as ai_router
+from app.ai_workflows import router as screenings_router
+from app.auth import router as auth_router
+from app.candidates import router as candidates_router
 from app.config import Settings
-from app.errors import APIError
+from app.dashboard import router as dashboard_router
+from app.errors import APIError, error_payload
 from app.gigachat import GigaChatClient, GigaChatError
+from app.integrations import router as integrations_router
+from app.middleware import BodySizeLimit
+from app.onboarding import router as onboarding_router
+from app.providers import ProviderClient
+from app.recruitment import router as recruitment_router
 from app.vacancies import router as vacancies_router
 
 logger = logging.getLogger(__name__)
@@ -23,7 +32,7 @@ def error_response(status, code, message, details=None):
     return JSONResponse(
         status_code=status,
         headers=headers,
-        content={"error": {"code": code, "message": message, "details": details or []}},
+        content=error_payload(code, message, details),
     )
 
 
@@ -38,11 +47,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             async with GigaChatClient(settings) as client:
                 app.state.gigachat = client
-                yield
+                app.state.providers = ProviderClient(settings)
+                try:
+                    yield
+                finally:
+                    await app.state.providers.aclose()
         finally:
             engine.dispose()
 
-    app = FastAPI(title="AI HR Assistant", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="AI HR Assistant", version="0.2.0", lifespan=lifespan)
+    app.add_middleware(BodySizeLimit)
 
     @app.exception_handler(APIError)
     async def api_error(_request, exc):
@@ -69,6 +83,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.error("Database operation failed: %s", type(exc).__name__)
         return error_response(503, "DATABASE_UNAVAILABLE", "База данных временно недоступна.")
 
+    @app.exception_handler(IntegrityError)
+    async def integrity_error(_request, _exc):
+        return error_response(
+            409, "DATA_CONFLICT", "Данные изменились или связанный объект недоступен."
+        )
+
     @app.exception_handler(HTTPException)
     async def http_error(_request, exc):
         return error_response(exc.status_code, "HTTP_ERROR", str(exc.detail))
@@ -86,4 +106,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(vacancies_router)
     app.include_router(ai_router)
+    app.include_router(auth_router)
+    app.include_router(candidates_router)
+    app.include_router(recruitment_router)
+    app.include_router(screenings_router)
+    app.include_router(onboarding_router)
+    app.include_router(dashboard_router)
+    app.include_router(integrations_router)
     return app

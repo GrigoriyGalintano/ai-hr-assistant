@@ -4,9 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Response
 from sqlalchemy import func, select
 
+from app.common import audit_event, conflict
 from app.dependencies import SessionDep, UserDep, require_editor
 from app.errors import APIError
-from app.models import AuditLog, Vacancy, utcnow
+from app.models import Application, AuditLog, Vacancy, utcnow
 from app.schemas import Pagination, Status, VacancyCreate, VacancyList, VacancyOut, VacancyPatch
 
 router = APIRouter(prefix="/api/v1/vacancies", tags=["vacancies"])
@@ -124,3 +125,15 @@ def patch_vacancy(vacancy_id: UUID, body: VacancyPatch, session: SessionDep, use
     audit(session, user, vacancy, "vacancy.updated")
     session.commit()
     return vacancy
+
+
+@router.delete("/{vacancy_id}", status_code=204)
+def delete_vacancy(vacancy_id: UUID, session: SessionDep, user: UserDep):
+    require_editor(user)
+    vacancy = find_vacancy(session, user, vacancy_id, lock=True)
+    if session.scalar(select(Application.id).where(Application.vacancy_id == vacancy.id).limit(1)):
+        conflict("У вакансии есть отклики. Используйте статус closed.")
+    audit_event(session, user, vacancy, "vacancy.deleted")
+    session.delete(vacancy)
+    session.commit()
+    return Response(status_code=204)
