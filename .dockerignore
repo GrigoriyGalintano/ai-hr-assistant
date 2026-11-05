@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+.env.*
+certs
+__pycache__
+.pytest_cache
+.ruff_cache
+*.egg-info
+tests
+pytest.ini
+requirements-dev.lock
