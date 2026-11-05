@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://hr:hr@localhost:5432/hr_assistant"
+    database_url: str = "postgresql+psycopg://hr:hr@127.0.0.1:55433/hr_assistant"
     api_token: SecretStr | None = None
     api_user_id: UUID | None = None
 

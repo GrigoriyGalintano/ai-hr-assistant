@@ -16,6 +16,7 @@ docker compose exec api python -m scripts.seed_dev
 Swagger доступен по адресу http://localhost:8000/docs.
 Миграции применяются при старте. Данные БД сохраняются в volume.
 Команда `seed_dev` создаёт локальную организацию и HR-пользователя.
+Порт PostgreSQL на хосте: 55433, меняется через `POSTGRES_PORT` в `.env`.
 
 Без Docker для приложения, Python 3.12+:
 
